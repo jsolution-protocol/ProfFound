@@ -2,9 +2,9 @@
 
 > **Contract Name:** `ProfFound`  
 > **Source Path:** `src/ProfFound.sol`  
-> **Compiler Version:** `0.8.35`  
+> **Compiler Version:** `0.8.20`  
 > **License:** MIT  
-> **Status:** Active Development (Milestone 1 Implemented)
+> **Status:** Active Development (Milestone 2 Implemented)
 
 ---
 
@@ -57,6 +57,7 @@ Kontrak menggunakan Solidity `custom error` alih-alih `require("string")` untuk 
 | `SelfIssuanceNotAllowed()` | Penerbit mencoba menerbitkan kredensial ke wallet-nya sendiri (*self-claim prohibition*). |
 | `EmptyCredentialType()` | Parameter `credentialType` dikirimkan dengan string kosong `""`. |
 | `CredentialNotFound(uint256 id)` | ID kredensial yang diminta belum ada di penyimpanan. |
+| `CredentialAlreadyRevoked(uint256 id)` | Mencoba mencabut kredensial yang sudah berstatus dicabut. |
 | `NotIssuer(address caller, address issuer)` | Wallet pemanggil bukan penerbit yang sah dari kredensial tersebut. |
 
 ---
@@ -72,8 +73,14 @@ event CredentialIssued(
     uint256 issuedAt,
     bytes32 proofHash
 );
+
+event CredentialRevoked(
+    uint256 indexed id,
+    address indexed issuer,
+    uint256 revokedAt
+);
 ```
-* Indeks (`indexed`): Memungkinkan *dApp frontend*, *The Graph*, atau *indexer* memfilter histori kredensial berdasarkan `id`, `issuer`, atau `recipient`.
+* Indeks (`indexed`): Memungkinkan *dApp frontend*, *The Graph*, atau *indexer* memfilter riwayat penerbitan dan pencabutan kredensial secara efisien.
 
 ---
 
@@ -102,15 +109,27 @@ function issueCredential(
   * Menolak `bytes(credentialType).length == 0`.
 * **Output**: Mengembalikan `newId` yang diterbitkan.
 
-### 6.2 View Functions
+### 6.2 `revokeCredential`
+```solidity
+function revokeCredential(uint256 id) external
+```
+* **Akses**: Hanya `issuer` asli kredensial (`msg.sender == cred.issuer`).
+* **Proteksi**:
+  * Menolak jika ID tidak ditemukan (`CredentialNotFound`).
+  * Menolak jika pemanggil bukan issuer (`NotIssuer`).
+  * Menolak jika sudah dicabut (`CredentialAlreadyRevoked`).
+* **Mutasi**: Mengubah status kredensial menjadi `CredentialStatus.Revoked` dan memancarkan event `CredentialRevoked`.
+
+### 6.3 View Functions
 * `getCredential(uint256 id) external view returns (Credential memory)`: Mengambil data lengkap kredensial.
 * `getCredentialsByRecipient(address recipient) external view returns (uint256[] memory)`: Mengambil array ID kredensial milik seorang profesional.
 * `totalCredentials() external view returns (uint256)`: Mengambil jumlah total kredensial yang telah diterbitkan di platform.
+* `isValid(uint256 id) external view returns (bool)`: Helper cepat untuk memeriksa apakah kredensial aktif (`true`) atau tidak valid/dicabut (`false`).
 
 ---
 
 ## 7. Testing Summary
 
 Unit test diimplementasikan di `test/ProfFound.t.sol`:
-* Total Test: 8 Unit Tests (termasuk Fuzz Testing 256 runs).
+* Total Test: 13 Unit Tests (termasuk Fuzz Testing 256 runs, Negative/Revert tests, dan State Transition checks).
 * Status: **100% Passed**.

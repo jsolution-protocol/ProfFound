@@ -7,7 +7,7 @@ on:
   pull_request:
   workflow_dispatch:
 
-jobs:
+jobs: 
   check:
     name: Foundry project
     runs-on: ubuntu-latest

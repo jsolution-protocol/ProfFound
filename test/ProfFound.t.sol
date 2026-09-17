@@ -9,7 +9,7 @@ contract ProfFoundTest is Test {
 
     // Test accounts / actors
     address public alice = makeAddr("alice"); // Issuer (e.g., University, DAO, Company)
-    address public bob = makeAddr("bob");     // Professional / Recipient
+    address public bob = makeAddr("bob"); // Professional / Recipient
     address public charlie = makeAddr("charlie"); // Third-party / Other recipient
 
     bytes32 public sampleProofHash = keccak256("ipfs://bafybeicertificate123");
@@ -23,6 +23,8 @@ contract ProfFoundTest is Test {
         uint256 issuedAt,
         bytes32 proofHash
     );
+
+    event CredentialRevoked(uint256 indexed id, address indexed issuer, uint256 revokedAt);
 
     function setUp() public {
         profFound = new ProfFound();
@@ -42,20 +44,9 @@ contract ProfFoundTest is Test {
 
         // Expect event to be emitted
         vm.expectEmit(true, true, true, true);
-        emit CredentialIssued(
-            1,
-            alice,
-            bob,
-            "Junior Solidity Developer",
-            block.timestamp,
-            sampleProofHash
-        );
+        emit CredentialIssued(1, alice, bob, "Junior Solidity Developer", block.timestamp, sampleProofHash);
 
-        uint256 credId = profFound.issueCredential(
-            bob,
-            "Junior Solidity Developer",
-            sampleProofHash
-        );
+        uint256 credId = profFound.issueCredential(bob, "Junior Solidity Developer", sampleProofHash);
 
         // Assert return value & total counter
         assertEq(credId, 1);
@@ -102,6 +93,44 @@ contract ProfFoundTest is Test {
         assertEq(charlieCreds[0], 2);
     }
 
+    function test_RevokeCredential_Success() public {
+        // Alice menerbitkan kredensial ke Bob
+        vm.prank(alice);
+        uint256 credId = profFound.issueCredential(bob, "Solidity Dev", sampleProofHash);
+
+        assertTrue(profFound.isValid(credId));
+
+        // Expect event CredentialRevoked terpancar
+        vm.expectEmit(true, true, false, true);
+        emit CredentialRevoked(credId, alice, block.timestamp);
+
+        // Alice mencabut kredensial
+        vm.prank(alice);
+        profFound.revokeCredential(credId);
+
+        // Validasi status struct berubah jadi Revoked
+        ProfFound.Credential memory cred = profFound.getCredential(credId);
+        assertEq(uint256(cred.status), uint256(ProfFound.CredentialStatus.Revoked));
+
+        // Validasi helper isValid sekarang mengembalikan false
+        assertFalse(profFound.isValid(credId));
+    }
+
+    function test_IsValid_StateTransitions() public {
+        // 1. ID tidak ada -> false
+        assertFalse(profFound.isValid(999));
+
+        // 2. ID diterbitkan -> true
+        vm.prank(alice);
+        uint256 credId = profFound.issueCredential(bob, "Web3 Architect", sampleProofHash);
+        assertTrue(profFound.isValid(credId));
+
+        // 3. ID dicabut -> false
+        vm.prank(alice);
+        profFound.revokeCredential(credId);
+        assertFalse(profFound.isValid(credId));
+    }
+
     // =============================================================
     //                     NEGATIVE / REVERT TESTS
     // =============================================================
@@ -129,6 +158,39 @@ contract ProfFoundTest is Test {
         // Query ID yang belum ada
         vm.expectRevert(abi.encodeWithSelector(ProfFound.CredentialNotFound.selector, 999));
         profFound.getCredential(999);
+    }
+
+    function test_RevertIf_RevokeByNonIssuer() public {
+        // Alice menerbitkan kredensial ke Bob
+        vm.prank(alice);
+        uint256 credId = profFound.issueCredential(bob, "Solidity Dev", sampleProofHash);
+
+        // Charlie mencoba mencabut kredensial milik Alice
+        vm.prank(charlie);
+        vm.expectRevert(abi.encodeWithSelector(ProfFound.NotIssuer.selector, charlie, alice));
+        profFound.revokeCredential(credId);
+    }
+
+    function test_RevertIf_RevokeNonExistent() public {
+        // Mencoba mencabut kredensial yang belum ada
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(ProfFound.CredentialNotFound.selector, 999));
+        profFound.revokeCredential(999);
+    }
+
+    function test_RevertIf_AlreadyRevoked() public {
+        // Alice menerbitkan kredensial ke Bob
+        vm.prank(alice);
+        uint256 credId = profFound.issueCredential(bob, "Solidity Dev", sampleProofHash);
+
+        // Alice mencabut untuk pertama kali (sukses)
+        vm.prank(alice);
+        profFound.revokeCredential(credId);
+
+        // Alice mencoba mencabut kembali kredensial yang sudah dicabut
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(ProfFound.CredentialAlreadyRevoked.selector, credId));
+        profFound.revokeCredential(credId);
     }
 
     // =============================================================

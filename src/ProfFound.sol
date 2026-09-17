@@ -8,7 +8,6 @@ pragma solidity ^0.8.20;
  * @dev Enables authorized entities (Issuers) to issue verifiable credentials to professionals (Recipients).
  */
 contract ProfFound {
-
     // =============================================================
     //                           ENUMS
     // =============================================================
@@ -63,6 +62,9 @@ contract ProfFound {
     /// @notice Thrown when querying a non-existent credential.
     error CredentialNotFound(uint256 id);
 
+    /// @notice Thrown when attempting to revoke an already revoked credential.
+    error CredentialAlreadyRevoked(uint256 id);
+
     /// @notice Thrown when a non-issuer tries to perform restricted action (like revoke).
     error NotIssuer(address caller, address issuer);
 
@@ -87,6 +89,14 @@ contract ProfFound {
         uint256 issuedAt,
         bytes32 proofHash
     );
+
+    /**
+     * @notice Emitted when a credential is successfully revoked by its issuer.
+     * @param id Unique identifier of the revoked credential.
+     * @param issuer Address of the issuer performing the revocation.
+     * @param revokedAt Timestamp when revocation occurred.
+     */
+    event CredentialRevoked(uint256 indexed id, address indexed issuer, uint256 revokedAt);
 
     // =============================================================
     //                      STATE VARIABLES
@@ -113,11 +123,10 @@ contract ProfFound {
      * @param proofHash bytes32 hash of supporting evidence (e.g. IPFS digest or certificate hash).
      * @return newId The newly assigned unique credential ID.
      */
-    function issueCredential(
-        address recipient,
-        string calldata credentialType,
-        bytes32 proofHash
-    ) external returns (uint256 newId) {
+    function issueCredential(address recipient, string calldata credentialType, bytes32 proofHash)
+        external
+        returns (uint256 newId)
+    {
         // 1. Validasi Input
         if (recipient == address(0)) {
             revert InvalidRecipient();
@@ -148,14 +157,37 @@ contract ProfFound {
         _recipientCredentials[recipient].push(newId);
 
         // 3. Emit Event
-        emit CredentialIssued(
-            newId,
-            msg.sender,
-            recipient,
-            credentialType,
-            block.timestamp,
-            proofHash
-        );
+        emit CredentialIssued(newId, msg.sender, recipient, credentialType, block.timestamp, proofHash);
+    }
+
+    /**
+     * @notice Revokes an existing credential.
+     * @dev Only the original issuer can revoke a credential. Once revoked, status cannot be reverted.
+     * @param id The unique identifier of the credential to revoke.
+     */
+    function revokeCredential(uint256 id) external {
+        Credential storage cred = _credentials[id];
+
+        // 1. Validasi Keberadaan
+        if (cred.status == CredentialStatus.None) {
+            revert CredentialNotFound(id);
+        }
+
+        // 2. Validasi Hak Akses (Hanya Issuer Asli)
+        if (msg.sender != cred.issuer) {
+            revert NotIssuer(msg.sender, cred.issuer);
+        }
+
+        // 3. Mencegah Pencabutan Ulang
+        if (cred.status == CredentialStatus.Revoked) {
+            revert CredentialAlreadyRevoked(id);
+        }
+
+        // 4. Mutasi State
+        cred.status = CredentialStatus.Revoked;
+
+        // 5. Emit Event
+        emit CredentialRevoked(id, msg.sender, block.timestamp);
     }
 
     // =============================================================
@@ -189,5 +221,14 @@ contract ProfFound {
      */
     function totalCredentials() external view returns (uint256) {
         return _credentialIdCounter;
+    }
+
+    /**
+     * @notice Quick helper to verify if a credential is currently valid.
+     * @param id The unique identifier of the credential.
+     * @return True if credential exists and has status Valid, false otherwise.
+     */
+    function isValid(uint256 id) external view returns (bool) {
+        return _credentials[id].status == CredentialStatus.Valid;
     }
 }
