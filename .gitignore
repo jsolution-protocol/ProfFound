@@ -16,3 +16,8 @@ out/
 .env
 .env.*
 !.env.example
+
+# Frontend build artifacts & dependencies
+frontend/node_modules/
+frontend/dist/
+
