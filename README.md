@@ -3,7 +3,7 @@
 [![Solidity](https://img.shields.io/badge/Solidity-^0.8.20-363636?logo=solidity)](https://soliditylang.org/)
 [![Foundry](https://img.shields.io/badge/Built%20with-Foundry-FF4B4B?logo=ethereum)](https://getfoundry.sh/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests: 13 Passed](https://img.shields.io/badge/Tests-13%20Passed%20(100%25)-brightgreen)](file:///test/ProfFound.t.sol)
+[![Tests: 13 Passed](https://img.shields.io/badge/Tests-13%20Passed%20(100%25)-brightgreen)](test/ProfFound.t.sol)
 
 > **"Don't just claim your professional achievements. Prove them."**
 
@@ -140,7 +140,7 @@ Suite result: ok. 13 passed; 0 failed; 0 skipped (100% Pass Rate)
 ### 2. Installation & Build
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/ProfFound.git
+git clone https://github.com/jsolution-protocol/ProfFound.git
 cd ProfFound
 
 # Build the smart contracts
