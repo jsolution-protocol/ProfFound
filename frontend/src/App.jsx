@@ -43,10 +43,13 @@ export default function App() {
   const [revokeSuccess, setRevokeSuccess] = useState("");
   const [revokeError, setRevokeError] = useState("");
 
-  // Provider helper: Uses BrowserProvider if MetaMask available, otherwise falls back to RPC_URL
+  // RPC & Network Diagnostic State
+  const [rpcError, setRpcError] = useState("");
+
+  // Provider helper: Uses BrowserProvider if MetaMask is on chain 31337, otherwise falls back to JsonRpcProvider
   const getReadOnlyContract = () => {
     let provider;
-    if (typeof window !== "undefined" && window.ethereum) {
+    if (typeof window !== "undefined" && window.ethereum && chainId === 31337) {
       provider = new ethers.BrowserProvider(window.ethereum);
     } else {
       provider = new ethers.JsonRpcProvider(RPC_URL);
@@ -62,6 +65,37 @@ export default function App() {
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     return new ethers.Contract(PROFFOUND_ADDRESS, PROFFOUND_ABI, signer);
+  };
+
+  // Switch MetaMask to local Anvil network
+  const switchNetworkToAnvil = async () => {
+    if (typeof window === "undefined" || !window.ethereum) return;
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0x7a69" }], // 31337 in hex
+      });
+    } catch (switchError) {
+      if (switchError.code === 4902) {
+        try {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [
+              {
+                chainId: "0x7a69",
+                chainName: "Anvil Localhost",
+                rpcUrls: ["http://127.0.0.1:8545"],
+                nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+              },
+            ],
+          });
+        } catch (addError) {
+          console.error("Gagal menambahkan Anvil ke MetaMask:", addError);
+        }
+      } else {
+        console.error("Gagal berganti jaringan:", switchError);
+      }
+    }
   };
 
   // --- WALLET CONNECTION LOGIC ---
@@ -102,8 +136,10 @@ export default function App() {
       const contract = getReadOnlyContract();
       const count = await contract.totalCredentials();
       setTotalCount(Number(count));
+      setRpcError("");
     } catch (err) {
       console.error("Gagal mengambil total credentials:", err);
+      setRpcError("Node blockchain lokal (Anvil di http://127.0.0.1:8545) belum aktif.");
     }
   };
 
@@ -160,6 +196,7 @@ export default function App() {
     return () => {
       isMounted = false;
     };
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -329,7 +366,7 @@ export default function App() {
             </div>
             <div className="badge">
               <span className="badge-label">Total Minted:</span>
-              <span className="badge-value">{loadingTotal ? "..." : totalCount}</span>
+              <span className="badge-value">{totalCount}</span>
             </div>
             <div className="badge">
               <span className="badge-label">Contract:</span>
@@ -338,6 +375,24 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* RPC & NETWORK NOTICES */}
+      {rpcError && (
+        <div className="alert-box alert-error" style={{ marginBottom: "18px" }}>
+          ⚠️ <strong>Node Anvil Offline:</strong> {rpcError} Silakan buka terminal PowerShell dan jalankan perintah <code>anvil</code> untuk menyalakan blockchain lokal.
+        </div>
+      )}
+
+      {account && chainId && chainId !== 31337 && (
+        <div className="wallet-notice" style={{ borderColor: "var(--accent-red)", marginBottom: "18px" }}>
+          <div>
+            <strong>⚠️ Jaringan MetaMask Tidak Cocok:</strong> Dompet Anda terhubung ke <code>{SUPPORTED_CHAINS[chainId] || `Chain ID ${chainId}`}</code>, namun smart contract lokal berada di <code>Anvil Localhost (31337)</code>.
+          </div>
+          <button className="btn-wallet" onClick={switchNetworkToAnvil} style={{ padding: "6px 14px", fontSize: "0.85rem" }}>
+            Pindah ke Anvil (31337)
+          </button>
+        </div>
+      )}
 
       {/* NAVIGATION TABS */}
       <nav className="nav-tabs">
