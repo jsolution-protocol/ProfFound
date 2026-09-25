@@ -1,6 +1,30 @@
 export const PROFFOUND_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 export const RPC_URL = "http://127.0.0.1:8545";
 
+export const SUPPORTED_NETWORKS = {
+  84532: {
+    name: "Base Sepolia (84532)",
+    chainIdHex: "0x14a34",
+    rpcUrl: "https://sepolia.base.org",
+    explorer: "https://sepolia.basescan.org",
+    nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }
+  },
+  11155111: {
+    name: "Ethereum Sepolia (11155111)",
+    chainIdHex: "0xaa36a7",
+    rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com",
+    explorer: "https://sepolia.etherscan.io",
+    nativeCurrency: { name: "SepoliaETH", symbol: "ETH", decimals: 18 }
+  },
+  31337: {
+    name: "Anvil Local (31337)",
+    chainIdHex: "0x7a69",
+    rpcUrl: "http://127.0.0.1:8545",
+    explorer: "",
+    nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }
+  }
+};
+
 export const PROFFOUND_ABI = [
   {
     "type": "function",
